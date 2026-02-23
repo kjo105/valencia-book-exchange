@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the requesting user is an admin
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Helper: check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: check if user's firebaseUid matches
+    function isOwner(memberId) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/members/$(memberId)).data.firebaseUid == request.auth.uid;
+    }
+
+    // Books: public read, admin write
+    match /books/{bookId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Members: own doc by member, all by admin
+    match /members/{memberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Transactions: own by member, all by admin
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Monetary Donations: admin only
+    match /monetaryDonations/{donationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Expenses: admin only
+    match /expenses/{expenseId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Settings: admin only
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}
