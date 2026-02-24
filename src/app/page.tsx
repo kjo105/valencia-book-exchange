@@ -1,10 +1,276 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/use-auth";
+import type { Book, Hold } from "@/lib/validators";
+import { formatAuthor } from "@/lib/utils";
+import { cancelHoldAction, expireHoldIfNeeded } from "@/actions/holds";
 import { Button } from "@/components/ui/button";
-import { BookOpen, MapPin, Clock, Users, ArrowRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  BookOpen,
+  MapPin,
+  Clock,
+  Users,
+  ArrowRight,
+  QrCode,
+  LayoutDashboard,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 
 export default function HomePage() {
+  const { member, loading: authLoading } = useAuth();
+  const [activeHolds, setActiveHolds] = useState<Hold[]>([]);
+  const [newArrivals, setNewArrivals] = useState<Book[]>([]);
+  const [cancellingHold, setCancellingHold] = useState<string | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  useEffect(() => {
+    if (!member) return;
+
+    async function fetchData() {
+      setDataLoading(true);
+      try {
+        // Fetch active holds for this member
+        const holdsQuery = query(
+          collection(db, "holds"),
+          where("holderId", "==", member!.displayId),
+          where("status", "==", "active")
+        );
+        const holdsSnap = await getDocs(holdsQuery);
+        const holds = holdsSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as Hold
+        );
+
+        // Lazily expire holds
+        const validHolds: Hold[] = [];
+        for (const hold of holds) {
+          const expired = await expireHoldIfNeeded({
+            id: hold.id,
+            status: hold.status,
+            expiresAtMs: hold.expiresAt.toMillis(),
+            bookDocId: hold.bookDocId,
+          });
+          if (!expired) validHolds.push(hold);
+        }
+        setActiveHolds(validHolds);
+
+        // Fetch 4 most recently added available books
+        const booksQuery = query(
+          collection(db, "books"),
+          where("status", "==", "Available"),
+          orderBy("createdAt", "desc"),
+          limit(4)
+        );
+        const booksSnap = await getDocs(booksQuery);
+        const books = booksSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as Book
+        );
+        setNewArrivals(books);
+      } catch (error) {
+        console.error("Error fetching homepage data:", error);
+      } finally {
+        setDataLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [member]);
+
+  async function handleCancelHold(hold: Hold) {
+    setCancellingHold(hold.id);
+    try {
+      const result = await cancelHoldAction({
+        holdDocId: hold.id,
+        bookDocId: hold.bookDocId,
+      });
+      if (result.success) {
+        setActiveHolds((prev) => prev.filter((h) => h.id !== hold.id));
+        toast.success("Hold cancelled");
+      } else {
+        toast.error(result.error || "Failed to cancel hold");
+      }
+    } catch {
+      toast.error("Failed to cancel hold");
+    } finally {
+      setCancellingHold(null);
+    }
+  }
+
+  function getTimeRemaining(expiresAt: { toDate: () => Date }) {
+    const now = new Date();
+    const expires = expiresAt.toDate();
+    const diff = expires.getTime() - now.getTime();
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) return `${hours}h ${minutes}m remaining`;
+    return `${minutes}m remaining`;
+  }
+
+  const isLoggedIn = !authLoading && !!member;
+
   return (
     <div>
+      {/* Personalized section for logged-in members */}
+      {isLoggedIn && (
+        <section className="border-b bg-gradient-to-b from-primary/5 to-background py-10 md:py-14">
+          <div className="container px-4 mx-auto space-y-8">
+            {/* Welcome banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <h1 className="text-3xl font-bold">
+                Welcome back, {member.firstName}!
+              </h1>
+              <Badge variant="secondary" className="w-fit text-sm">
+                {member.displayId}
+              </Badge>
+            </div>
+
+            {/* Quick actions */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Link href="/checkout/scan">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-primary/10 p-3">
+                      <QrCode className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Scan to Check Out</p>
+                      <p className="text-sm text-muted-foreground">
+                        Borrow a book instantly
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/catalog">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-primary/10 p-3">
+                      <BookOpen className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Browse Catalog</p>
+                      <p className="text-sm text-muted-foreground">
+                        Find your next read
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/my/dashboard">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-primary/10 p-3">
+                      <LayoutDashboard className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">My Dashboard</p>
+                      <p className="text-sm text-muted-foreground">
+                        Checkouts, credits & more
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+
+            {/* Active Holds */}
+            {activeHolds.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-3">Active Holds</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {activeHolds.map((hold) => (
+                    <Card key={hold.id} className="border-amber-300">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">
+                            {hold.bookTitle}
+                          </p>
+                          <Badge variant="outline" className="gap-1 mt-1">
+                            <Clock className="h-3 w-3" />
+                            {getTimeRemaining(hold.expiresAt)}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCancelHold(hold)}
+                          disabled={cancellingHold === hold.id}
+                          className="shrink-0 ml-2"
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          {cancellingHold === hold.id
+                            ? "Cancelling..."
+                            : "Cancel"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New Arrivals */}
+            {!dataLoading && newArrivals.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold">New Arrivals</h2>
+                  <Button variant="link" asChild className="text-sm">
+                    <Link href="/catalog">View all</Link>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {newArrivals.map((book) => (
+                    <Link key={book.id} href={`/catalog/${book.id}`}>
+                      <Card className="h-full hover:shadow-md transition-shadow cursor-pointer overflow-hidden">
+                        <div className="aspect-[2/3] bg-muted flex items-center justify-center">
+                          {book.coverUrl ? (
+                            <img
+                              src={book.coverUrl}
+                              alt={`Cover of ${book.title}`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <BookOpen className="h-10 w-10 text-muted-foreground" />
+                          )}
+                        </div>
+                        <CardContent className="p-3">
+                          <p className="font-medium text-sm line-clamp-2">
+                            {book.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {formatAuthor(book.authorLast, book.authorFirst)}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="mt-2 text-xs"
+                          >
+                            {book.genre}
+                          </Badge>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 to-background py-20 md:py-32">
         <div className="container px-4 text-center mx-auto">
@@ -29,9 +295,11 @@ export default function HomePage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/login">Member Sign In</Link>
-              </Button>
+              {!isLoggedIn && (
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/login">Member Sign In</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
