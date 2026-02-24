@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   BookOpen,
+  BookPlus,
   Users,
   ArrowLeftRight,
   HandCoins,
@@ -15,12 +16,17 @@ import {
   Settings,
   LayoutDashboard,
   QrCode,
+  RotateCcw,
+  Clock,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/books", label: "Books", icon: BookOpen },
   { href: "/admin/books/qr", label: "QR Codes", icon: QrCode },
+  { href: "/admin/checkout", label: "Checkout", icon: BookPlus },
+  { href: "/admin/checkin", label: "Check In", icon: RotateCcw },
+  { href: "/admin/holds", label: "Holds", icon: Clock },
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/admin/donations", label: "Donations", icon: HandCoins },

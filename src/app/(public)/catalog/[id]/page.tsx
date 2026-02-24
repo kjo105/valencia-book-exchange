@@ -1,22 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { Book } from "@/lib/validators";
+import { placeHoldAction } from "@/actions/holds";
 import { formatAuthor, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function BookDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const { member } = useAuth();
   const id = params.id as string;
   const [book, setBook] = useState<(Book & { id: string }) | null>(null);
   const [loading, setLoading] = useState(true);
+  const [holdSubmitting, setHoldSubmitting] = useState(false);
 
   useEffect(() => {
     async function fetchBook() {
@@ -44,10 +50,37 @@ export default function BookDetailPage() {
         return "bg-green-100 text-green-800 border-green-300";
       case "Checked Out":
         return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "On Hold":
+        return "bg-amber-100 text-amber-800 border-amber-300";
       default:
         return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
+
+  async function handlePlaceHold() {
+    if (!book || !member) return;
+    setHoldSubmitting(true);
+    try {
+      const result = await placeHoldAction({
+        bookDocId: book.id,
+        bookDisplayId: book.displayId,
+        bookTitle: book.title,
+        holderDocId: member.id,
+        holderDisplayId: member.displayId,
+        holderName: `${member.lastName}, ${member.firstName}`,
+      });
+      if (!result.success) {
+        toast.error(result.error || "Failed to place hold");
+      } else {
+        toast.success("Hold placed! You have 24 hours to pick up this book.");
+        router.push("/my/dashboard");
+      }
+    } catch {
+      toast.error("Failed to place hold. Please try again.");
+    } finally {
+      setHoldSubmitting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -169,6 +202,25 @@ export default function BookDetailPage() {
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">Notes</p>
               <p className="text-sm">{book.notes}</p>
+            </div>
+          )}
+
+          {member && book.status === "Available" && (
+            <div className="flex gap-2 pt-2 border-t">
+              <Button asChild>
+                <Link href={`/checkout/${book.displayId}`}>
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Check Out
+                </Link>
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handlePlaceHold}
+                disabled={holdSubmitting}
+              >
+                <Clock className="mr-2 h-4 w-4" />
+                {holdSubmitting ? "Placing..." : "Place 24-Hour Hold"}
+              </Button>
             </div>
           )}
         </CardContent>

@@ -9,11 +9,12 @@ import { useAuth } from "@/hooks/use-auth";
 import type { Book } from "@/lib/validators";
 import type { Settings } from "@/lib/validators";
 import { checkoutBookAction } from "@/actions/checkout";
+import { placeHoldAction } from "@/actions/holds";
 import { formatAuthor, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, CheckCircle, AlertCircle } from "lucide-react";
+import { BookOpen, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CheckoutConfirmPage() {
@@ -25,6 +26,7 @@ export default function CheckoutConfirmPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [holdSubmitting, setHoldSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -96,6 +98,33 @@ export default function CheckoutConfirmPage() {
     }
   }
 
+  async function handlePlaceHold() {
+    if (!book || !member) return;
+    setHoldSubmitting(true);
+
+    try {
+      const result = await placeHoldAction({
+        bookDocId,
+        bookDisplayId: book.displayId,
+        bookTitle: book.title,
+        holderDocId: member.id,
+        holderDisplayId: member.displayId,
+        holderName: `${member.lastName}, ${member.firstName}`,
+      });
+
+      if (!result.success) {
+        toast.error(result.error || "Failed to place hold");
+      } else {
+        toast.success("Hold placed! You have 24 hours to pick up this book.");
+        setTimeout(() => router.push("/my/dashboard"), 2000);
+      }
+    } catch (err) {
+      toast.error("Failed to place hold. Please try again.");
+    } finally {
+      setHoldSubmitting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -137,10 +166,25 @@ export default function CheckoutConfirmPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{book?.title}</CardTitle>
-          <CardDescription>
-            {book ? formatAuthor(book.authorLast, book.authorFirst) : ""}
-          </CardDescription>
+          <div className="flex gap-4">
+            {book?.coverUrl ? (
+              <img
+                src={book.coverUrl}
+                alt={`Cover of ${book.title}`}
+                className="h-36 w-auto rounded border object-cover shrink-0"
+              />
+            ) : (
+              <div className="flex h-36 w-24 shrink-0 items-center justify-center rounded border border-dashed bg-muted">
+                <BookOpen className="h-10 w-10 text-muted-foreground" />
+              </div>
+            )}
+            <div>
+              <CardTitle>{book?.title}</CardTitle>
+              <CardDescription className="mt-1">
+                {book ? formatAuthor(book.authorLast, book.authorFirst) : ""}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -174,10 +218,20 @@ export default function CheckoutConfirmPage() {
             <Button
               className="flex-1"
               onClick={handleCheckout}
-              disabled={submitting || book?.status !== "Available"}
+              disabled={submitting || holdSubmitting || book?.status !== "Available"}
             >
               {submitting ? "Processing..." : "Confirm Checkout"}
             </Button>
+            {book?.status === "Available" && (
+              <Button
+                variant="secondary"
+                onClick={handlePlaceHold}
+                disabled={submitting || holdSubmitting}
+              >
+                <Clock className="mr-2 h-4 w-4" />
+                {holdSubmitting ? "Placing..." : "Place 24-Hour Hold"}
+              </Button>
+            )}
             <Button variant="outline" asChild>
               <Link href="/checkout/scan">Cancel</Link>
             </Button>

@@ -46,6 +46,7 @@ export type Condition = (typeof CONDITIONS)[number];
 export const BOOK_STATUSES = [
   "Available",
   "Checked Out",
+  "On Hold",
   "Lost",
   "Retired",
 ] as const;

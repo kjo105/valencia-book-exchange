@@ -126,6 +126,22 @@ export const expenseFormSchema = expenseSchema.omit({
 
 export type Expense = z.infer<typeof expenseSchema> & { id: string };
 
+// Hold schema
+export const holdSchema = z.object({
+  bookId: z.string(), // book displayId
+  bookTitle: z.string(),
+  bookDocId: z.string(),
+  holderId: z.string(), // member displayId
+  holderName: z.string(),
+  holderDocId: z.string(),
+  holdDate: z.any(), // Firestore Timestamp
+  expiresAt: z.any(), // Firestore Timestamp
+  status: z.enum(["active", "fulfilled", "cancelled", "expired"]),
+  createdAt: z.any(),
+});
+
+export type Hold = z.infer<typeof holdSchema> & { id: string };
+
 // Settings schema
 export const settingsSchema = z.object({
   checkoutDurationDays: z.number().int().min(1).default(21),

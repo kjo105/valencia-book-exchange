@@ -19,8 +19,21 @@ export async function checkoutBookAction(data: {
     return { success: false, error: "Book not found" };
   }
   const book = bookSnap.data()!;
-  if (book.status !== "Available") {
+  if (book.status !== "Available" && book.status !== "On Hold") {
     return { success: false, error: "Book is not available for checkout" };
+  }
+
+  // If book is on hold, only the hold owner can check it out
+  if (book.status === "On Hold") {
+    const activeHolds = await adminDb
+      .collection("holds")
+      .where("bookDocId", "==", data.bookDocId)
+      .where("status", "==", "active")
+      .get();
+    const holdDoc = activeHolds.docs[0];
+    if (holdDoc && holdDoc.data().holderId !== data.borrowerDisplayId) {
+      return { success: false, error: "This book is on hold for another member" };
+    }
   }
 
   // Check member limits

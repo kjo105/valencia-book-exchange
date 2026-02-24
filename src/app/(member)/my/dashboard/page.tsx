@@ -5,17 +5,23 @@ import Link from "next/link";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
-import type { Transaction } from "@/lib/validators";
+import type { Book, Transaction, Hold } from "@/lib/validators";
 import { formatDate, isOverdue } from "@/lib/utils";
+import { cancelHoldAction, expireHoldIfNeeded } from "@/actions/holds";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { QrCode, BookOpen, CreditCard, AlertTriangle } from "lucide-react";
+import { QrCode, BookOpen, CreditCard, AlertTriangle, Clock, X } from "lucide-react";
+import { toast } from "sonner";
 
 export default function MemberDashboard() {
   const { member } = useAuth();
   const [activeCheckouts, setActiveCheckouts] = useState<Transaction[]>([]);
+  const [activeHolds, setActiveHolds] = useState<Hold[]>([]);
+  const [holdCoverMap, setHoldCoverMap] = useState<Record<string, string>>({});
+  const [coverMap, setCoverMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [cancellingHold, setCancellingHold] = useState<string | null>(null);
 
   useEffect(() => {
     if (!member) return;
@@ -26,11 +32,100 @@ export default function MemberDashboard() {
         where("isCheckedOut", "==", true)
       );
       const snap = await getDocs(q);
-      setActiveCheckouts(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Transaction));
+      const txns = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Transaction);
+      setActiveCheckouts(txns);
+
+      // Fetch cover URLs for each checked-out book
+      const covers: Record<string, string> = {};
+      await Promise.all(
+        txns.map(async (tx) => {
+          const bookQ = query(
+            collection(db, "books"),
+            where("displayId", "==", tx.bookId)
+          );
+          const bookSnap = await getDocs(bookQ);
+          if (!bookSnap.empty) {
+            const bookData = bookSnap.docs[0].data();
+            if (bookData.coverUrl) covers[tx.bookId] = bookData.coverUrl;
+          }
+        })
+      );
+      setCoverMap(covers);
+
+      // Fetch active holds for this member
+      const holdsQuery = query(
+        collection(db, "holds"),
+        where("holderId", "==", member!.displayId),
+        where("status", "==", "active")
+      );
+      const holdsSnap = await getDocs(holdsQuery);
+      const holds = holdsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Hold);
+
+      // Lazily expire holds
+      const validHolds: Hold[] = [];
+      for (const hold of holds) {
+        const expired = await expireHoldIfNeeded({
+          id: hold.id,
+          status: hold.status,
+          expiresAtMs: hold.expiresAt.toMillis(),
+          bookDocId: hold.bookDocId,
+        });
+        if (!expired) validHolds.push(hold);
+      }
+      setActiveHolds(validHolds);
+
+      // Fetch cover URLs for held books
+      const holdCovers: Record<string, string> = {};
+      await Promise.all(
+        validHolds.map(async (h) => {
+          const bookQ = query(
+            collection(db, "books"),
+            where("displayId", "==", h.bookId)
+          );
+          const bookSnap = await getDocs(bookQ);
+          if (!bookSnap.empty) {
+            const bookData = bookSnap.docs[0].data();
+            if (bookData.coverUrl) holdCovers[h.bookId] = bookData.coverUrl;
+          }
+        })
+      );
+      setHoldCoverMap(holdCovers);
+
       setLoading(false);
     }
     fetch();
   }, [member]);
+
+  async function handleCancelHold(hold: Hold) {
+    setCancellingHold(hold.id);
+    try {
+      const result = await cancelHoldAction({
+        holdDocId: hold.id,
+        bookDocId: hold.bookDocId,
+      });
+      if (result.success) {
+        setActiveHolds((prev) => prev.filter((h) => h.id !== hold.id));
+        toast.success("Hold cancelled");
+      } else {
+        toast.error(result.error || "Failed to cancel hold");
+      }
+    } catch {
+      toast.error("Failed to cancel hold");
+    } finally {
+      setCancellingHold(null);
+    }
+  }
+
+  function getTimeRemaining(expiresAt: { toDate: () => Date }) {
+    const now = new Date();
+    const expires = expiresAt.toDate();
+    const diff = expires.getTime() - now.getTime();
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) return `${hours}h ${minutes}m remaining`;
+    return `${minutes}m remaining`;
+  }
 
   if (!member || loading) {
     return (
@@ -96,6 +191,57 @@ export default function MemberDashboard() {
         </CardContent>
       </Card>
 
+      {/* Active Holds */}
+      {activeHolds.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Active Holds</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {activeHolds.map((hold) => (
+              <Card key={hold.id} className="border-amber-300">
+                <CardHeader className="pb-2">
+                  <div className="flex gap-3">
+                    {holdCoverMap[hold.bookId] ? (
+                      <img
+                        src={holdCoverMap[hold.bookId]}
+                        alt={`Cover of ${hold.bookTitle}`}
+                        className="h-16 w-auto rounded border object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded border border-dashed bg-muted">
+                        <BookOpen className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <CardTitle className="text-base">{hold.bookTitle}</CardTitle>
+                      <CardDescription>
+                        Held: {formatDate(hold.holdDate)}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="gap-1">
+                      <Clock className="h-3 w-3" />
+                      {getTimeRemaining(hold.expiresAt)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCancelHold(hold)}
+                      disabled={cancellingHold === hold.id}
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      {cancellingHold === hold.id ? "Cancelling..." : "Cancel Hold"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Current Checkouts */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Current Checkouts</h2>
@@ -112,10 +258,25 @@ export default function MemberDashboard() {
               return (
                 <Card key={tx.id} className={overdue ? "border-red-300" : ""}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">{tx.bookTitle}</CardTitle>
-                    <CardDescription>
-                      Checked out: {formatDate(tx.checkoutDate)}
-                    </CardDescription>
+                    <div className="flex gap-3">
+                      {coverMap[tx.bookId] ? (
+                        <img
+                          src={coverMap[tx.bookId]}
+                          alt={`Cover of ${tx.bookTitle}`}
+                          className="h-16 w-auto rounded border object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded border border-dashed bg-muted">
+                          <BookOpen className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div>
+                        <CardTitle className="text-base">{tx.bookTitle}</CardTitle>
+                        <CardDescription>
+                          Checked out: {formatDate(tx.checkoutDate)}
+                        </CardDescription>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">

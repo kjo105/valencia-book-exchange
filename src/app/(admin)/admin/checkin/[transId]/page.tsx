@@ -34,13 +34,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { ArrowLeft, BookOpen, RotateCcw } from "lucide-react";
 import Link from "next/link";
 
 export default function CheckinPage() {
   const { transId } = useParams<{ transId: string }>();
   const router = useRouter();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [conditionAtCheckin, setConditionAtCheckin] = useState("");
@@ -61,6 +62,17 @@ export default function CheckinPage() {
         const txData = txSnap.data() as Transaction;
         setTransaction(txData);
         setConditionAtCheckin(txData.conditionAtCheckout ?? "");
+
+        // Fetch book cover
+        const bookQ = query(
+          collection(db, "books"),
+          where("displayId", "==", txData.bookId)
+        );
+        const bookSnap = await getDocs(bookQ);
+        if (!bookSnap.empty) {
+          const bookData = bookSnap.docs[0].data();
+          if (bookData.coverUrl) setCoverUrl(bookData.coverUrl);
+        }
       } catch (error) {
         console.error("Error fetching transaction:", error);
         toast.error("Failed to load transaction.");
@@ -160,11 +172,23 @@ export default function CheckinPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Book Title</p>
-              <p className="font-medium">{transaction.bookTitle}</p>
-            </div>
+          <div className="flex gap-4">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt={`Cover of ${transaction.bookTitle}`}
+                className="h-32 w-auto rounded border object-cover shrink-0"
+              />
+            ) : (
+              <div className="flex h-32 w-24 shrink-0 items-center justify-center rounded border border-dashed bg-muted">
+                <BookOpen className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4 flex-1">
+              <div>
+                <p className="text-sm text-muted-foreground">Book Title</p>
+                <p className="font-medium">{transaction.bookTitle}</p>
+              </div>
             <div>
               <p className="text-sm text-muted-foreground">Borrower</p>
               <p className="font-medium">{transaction.borrowerName}</p>
@@ -178,6 +202,7 @@ export default function CheckinPage() {
             <div>
               <p className="text-sm text-muted-foreground">Due Date</p>
               <p className="font-medium">{formatDate(transaction.dueDate)}</p>
+            </div>
             </div>
           </div>
 
