@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" fill="none">
+  <!-- Open book icon -->
+  <g transform="translate(0, 10)">
+    <!-- Left page (cream/white) -->
+    <path d="M12 85 C12 85 12 15 12 15 C12 12 14 10 17 10 L48 10 C48 10 50 10 50 12 L50 88 C50 88 48 86 46 86 L17 86 C14 86 12 87 12 85Z" fill="#FFFDF9" stroke="#2B3D5B" stroke-width="2.5"/>
+    <!-- Roman numeral IV on left page -->
+    <text x="31" y="52" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="#2B3D5B" opacity="0.4">IV</text>
+    <!-- Right page (navy) -->
+    <path d="M50 12 C50 10 52 10 52 10 L83 10 C86 10 88 12 88 15 L88 85 C88 87 86 86 83 86 L54 86 C52 86 50 88 50 88 L50 12Z" fill="#2B3D5B" stroke="#2B3D5B" stroke-width="2.5"/>
+    <!-- Letter V on right page -->
+    <text x="69" y="52" text-anchor="middle" font-family="serif" font-size="20" font-weight="bold" fill="#FFFDF9">V</text>
+    <!-- Copper accent bookmark -->
+    <path d="M62 10 L62 38 L69 30 L76 38 L76 10" fill="#C0693B" opacity="0.85"/>
+    <!-- Book spine -->
+    <line x1="50" y1="10" x2="50" y2="88" stroke="#2B3D5B" stroke-width="2"/>
+    <!-- Book cover edges -->
+    <path d="M12 85 C12 87 14 90 17 90 L46 90 C48 90 50 92 50 92 C50 92 52 90 54 90 L83 90 C86 90 88 87 88 85" stroke="#2B3D5B" stroke-width="2.5" fill="none"/>
+  </g>
+
+  <!-- Text group -->
+  <g transform="translate(108, 0)">
+    <!-- VALENCIA -->
+    <text x="0" y="32" font-family="'Playfair Display', 'Georgia', serif" font-size="22" font-weight="400" letter-spacing="5" fill="#2B3D5B">VALENCIA</text>
+    <!-- BOOK EXCHANGE -->
+    <text x="0" y="64" font-family="'Playfair Display', 'Georgia', serif" font-size="32" font-weight="700" letter-spacing="2" fill="#2B3D5B">BOOK EXCHANGE</text>
+    <!-- Decorative line left -->
+    <line x1="0" y1="88" x2="50" y2="88" stroke="#C0693B" stroke-width="2"/>
+    <!-- THE MISSING CHAPTER -->
+    <text x="62" y="93" font-family="'Playfair Display', 'Georgia', serif" font-size="19" font-weight="600" letter-spacing="4" fill="#C0693B">THE MISSING CHAPTER</text>
+    <!-- Decorative line right -->
+    <line x1="380" y1="88" x2="400" y2="88" stroke="#C0693B" stroke-width="2"/>
+  </g>
+</svg>

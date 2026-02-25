@@ -24,8 +24,6 @@ import {
   Clock,
   Users,
   ArrowRight,
-  QrCode,
-  LayoutDashboard,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -127,7 +125,7 @@ export default function HomePage() {
       {/* Personalized section for logged-in members */}
       {isLoggedIn && (
         <section className="border-b bg-gradient-to-b from-primary/5 to-background py-10 md:py-14">
-          <div className="container px-4 mx-auto space-y-8">
+          <div className="container px-4 mx-auto space-y-10">
             {/* Welcome banner */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <h1 className="text-3xl font-bold">
@@ -136,55 +134,6 @@ export default function HomePage() {
               <Badge variant="secondary" className="w-fit text-sm">
                 {member.displayId}
               </Badge>
-            </div>
-
-            {/* Quick actions */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Link href="/checkout/scan">
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className="rounded-full bg-primary/10 p-3">
-                      <QrCode className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Scan to Check Out</p>
-                      <p className="text-sm text-muted-foreground">
-                        Borrow a book instantly
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-              <Link href="/catalog">
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className="rounded-full bg-primary/10 p-3">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Browse Catalog</p>
-                      <p className="text-sm text-muted-foreground">
-                        Find your next read
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-              <Link href="/my/dashboard">
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className="rounded-full bg-primary/10 p-3">
-                      <LayoutDashboard className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">My Dashboard</p>
-                      <p className="text-sm text-muted-foreground">
-                        Checkouts, credits & more
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
             </div>
 
             {/* Active Holds */}
@@ -232,34 +181,33 @@ export default function HomePage() {
                     <Link href="/catalog">View all</Link>
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {newArrivals.map((book) => (
                     <Link key={book.id} href={`/catalog/${book.id}`}>
-                      <Card className="h-full hover:shadow-md transition-shadow cursor-pointer overflow-hidden">
-                        <div className="aspect-[2/3] bg-muted flex items-center justify-center">
-                          {book.coverUrl ? (
-                            <img
-                              src={book.coverUrl}
-                              alt={`Cover of ${book.title}`}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <BookOpen className="h-10 w-10 text-muted-foreground" />
-                          )}
-                        </div>
-                        <CardContent className="p-3">
-                          <p className="font-medium text-sm line-clamp-2">
-                            {book.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {formatAuthor(book.authorLast, book.authorFirst)}
-                          </p>
-                          <Badge
-                            variant="outline"
-                            className="mt-2 text-xs"
-                          >
-                            {book.genre}
-                          </Badge>
+                      <Card className="hover:shadow-lg hover:border-accent/40 transition-all cursor-pointer overflow-hidden">
+                        <CardContent className="flex items-center gap-3 p-3">
+                          <div className="h-20 w-14 shrink-0 rounded bg-muted flex items-center justify-center overflow-hidden">
+                            {book.coverUrl ? (
+                              <img
+                                src={book.coverUrl}
+                                alt={`Cover of ${book.title}`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <BookOpen className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm line-clamp-2">
+                              {book.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1 truncate">
+                              {formatAuthor(book.authorLast, book.authorFirst)}
+                            </p>
+                            <Badge variant="outline" className="mt-1 text-xs">
+                              {book.genre}
+                            </Badge>
+                          </div>
                         </CardContent>
                       </Card>
                     </Link>
@@ -271,39 +219,40 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 to-background py-20 md:py-32">
-        <div className="container px-4 text-center mx-auto">
-          <div className="mx-auto max-w-3xl space-y-6">
-            <div className="flex justify-center">
-              <BookOpen className="h-16 w-16 text-primary" />
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-              The Missing Chapter
-            </h1>
-            <p className="text-xl text-muted-foreground md:text-2xl">
-              Valencia English Book Exchange
-            </p>
-            <p className="mx-auto max-w-xl text-muted-foreground">
-              A community-run book exchange in the heart of Mestalla.
-              Browse, borrow, and share English books with fellow readers.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Button asChild size="lg">
-                <Link href="/catalog">
-                  Browse Catalog
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              {!isLoggedIn && (
+      {/* Hero — only shown for visitors (logged-in users see the welcome section) */}
+      {!isLoggedIn && (
+        <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 to-background py-20 md:py-32">
+          <div className="container px-4 text-center mx-auto">
+            <div className="mx-auto max-w-3xl space-y-6">
+              <h1 className="font-serif text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+                The Missing Chapter
+              </h1>
+              <div className="flex items-center justify-center gap-4">
+                <span className="h-px w-12 bg-accent" />
+                <p className="font-serif text-xl text-muted-foreground md:text-2xl tracking-wide">
+                  Valencia Book Exchange
+                </p>
+                <span className="h-px w-12 bg-accent" />
+              </div>
+              <p className="mx-auto max-w-xl text-muted-foreground">
+                A community-run book exchange in the heart of Mestalla.
+                Browse, borrow, and share English books with fellow readers.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                <Button asChild size="lg">
+                  <Link href="/catalog">
+                    Browse Catalog
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
                 <Button asChild variant="outline" size="lg">
                   <Link href="/login">Member Sign In</Link>
                 </Button>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Info cards */}
       <section className="py-16 md:py-24">

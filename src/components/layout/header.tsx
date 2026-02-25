@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, User, LogOut, LayoutDashboard, Settings, Menu } from "lucide-react";
+import { User, LogOut, LayoutDashboard, Settings, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
@@ -55,8 +55,11 @@ export function Header() {
           </Sheet>
 
           <Link href="/" className="flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg hidden sm:inline">The Missing Chapter</span>
+            <img
+              src="/logo.svg"
+              alt="Valencia Book Exchange — The Missing Chapter"
+              className="h-12 w-auto sm:h-14"
+            />
           </Link>
         </div>
 
