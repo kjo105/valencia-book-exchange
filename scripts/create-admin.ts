@@ -17,13 +17,30 @@ const app = initializeApp({
 const db = getFirestore(app);
 
 async function createAdmin() {
-  // Update settings to increment member ID
   const settingsRef = db.doc("settings/config");
-  await settingsRef.update({ nextMemberId: 2 });
 
-  // Create admin member
+  // Create MID-0001 — Mikaela Larson (admin)
   await db.collection("members").add({
     displayId: "MID-0001",
+    lastName: "Larson",
+    firstName: "Mikaela",
+    phone: "",
+    email: "",
+    firebaseUid: null,
+    role: "admin",
+    credits: 0,
+    totalDonations: 0,
+    booksCheckedOut: 0,
+    isActive: true,
+    notes: "Admin",
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  console.log("Admin member MID-0001 (Larson, Mikaela) created!");
+
+  // Create MID-0002 — Kara Booker (admin)
+  await db.collection("members").add({
+    displayId: "MID-0002",
     lastName: "Booker",
     firstName: "Kara",
     phone: "",
@@ -38,8 +55,9 @@ async function createAdmin() {
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  console.log("Admin member MID-0002 (Booker, Kara) created!");
 
-  console.log("Admin member MID-0001 (Booker, Kara) created!");
+  await settingsRef.update({ nextMemberId: 3 });
 }
 
 createAdmin().catch(console.error);

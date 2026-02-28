@@ -127,14 +127,9 @@ export default function HomePage() {
         <section className="border-b bg-gradient-to-b from-primary/5 to-background py-10 md:py-14">
           <div className="container px-4 mx-auto space-y-10">
             {/* Welcome banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <h1 className="text-3xl font-bold">
-                Welcome back, {member.firstName}!
-              </h1>
-              <Badge variant="secondary" className="w-fit text-sm">
-                {member.displayId}
-              </Badge>
-            </div>
+            <h1 className="text-3xl font-bold">
+              Welcome back, {member.firstName}!
+            </h1>
 
             {/* Active Holds */}
             {activeHolds.length > 0 && (
