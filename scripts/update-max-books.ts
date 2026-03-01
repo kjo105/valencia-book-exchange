@@ -1,4 +1,5 @@
-// Run with: npx tsx scripts/seed-settings.ts
+// Run with: npx tsx scripts/update-max-books.ts
+// Sets maxBooksPerMember to 1 in Firestore
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import * as dotenv from "dotenv";
@@ -16,19 +17,9 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 
-async function seed() {
-  // Create settings document
-  await db.doc("settings/config").set({
-    checkoutDurationDays: 21,
-    maxBooksPerMember: 1,
-    creditCostCheckout: 1,
-    creditRewardDonation: 1,
-    nextBookId: 1,
-    nextMemberId: 1,
-    nextTransactionId: 1,
-  });
-
-  console.log("Settings document created!");
+async function main() {
+  await db.doc("settings/config").update({ maxBooksPerMember: 1 });
+  console.log("maxBooksPerMember updated to 1");
 }
 
-seed().catch(console.error);
+main().catch(console.error);

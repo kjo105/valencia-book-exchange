@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import type { Book } from "@/lib/validators";
 import type { Settings } from "@/lib/validators";
-import { checkoutBookAction } from "@/actions/checkout";
+import { requestCheckoutAction } from "@/actions/checkout-requests";
 import { placeHoldAction } from "@/actions/holds";
 import { formatAuthor, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,9 @@ export default function CheckoutConfirmPage() {
         setBook(bookData);
         setBookDocId(bookDoc.id);
 
-        if (bookData.status !== "Available") {
+        if (bookData.status === "Pending Pickup") {
+          setError("This book has already been requested and is awaiting pickup.");
+        } else if (bookData.status !== "Available") {
           setError("This book is not available for checkout.");
         }
 
@@ -69,30 +71,29 @@ export default function CheckoutConfirmPage() {
     fetch();
   }, [bookId]);
 
-  async function handleCheckout() {
+  async function handleRequestCheckout() {
     if (!book || !member) return;
     setSubmitting(true);
 
     try {
-      const result = await checkoutBookAction({
+      const result = await requestCheckoutAction({
         bookDocId,
         bookDisplayId: book.displayId,
         bookTitle: book.title,
-        borrowerDocId: member.id,
-        borrowerDisplayId: member.displayId,
-        borrowerName: `${member.lastName}, ${member.firstName}`,
-        conditionAtCheckout: book.condition,
+        requesterDocId: member.id,
+        requesterDisplayId: member.displayId,
+        requesterName: `${member.lastName}, ${member.firstName}`,
       });
 
       if (!result.success) {
-        toast.error(result.error || "Checkout failed");
+        toast.error(result.error || "Request failed");
       } else {
         setSuccess(true);
-        toast.success("Book checked out successfully!");
+        toast.success("Request submitted! You'll be notified when your pickup is scheduled.");
         setTimeout(() => router.push("/my/dashboard"), 2000);
       }
     } catch (err) {
-      toast.error("Checkout failed. Please try again.");
+      toast.error("Request failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -150,8 +151,10 @@ export default function CheckoutConfirmPage() {
     return (
       <div className="max-w-lg mx-auto text-center space-y-4 py-12">
         <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-        <h2 className="text-2xl font-bold">Checked Out!</h2>
-        <p className="text-muted-foreground">Enjoy reading &quot;{book?.title}&quot;</p>
+        <h2 className="text-2xl font-bold">Request Submitted!</h2>
+        <p className="text-muted-foreground">
+          You&apos;ll be notified when your pickup for &quot;{book?.title}&quot; is scheduled.
+        </p>
         <p className="text-sm text-muted-foreground">Redirecting to your dashboard...</p>
       </div>
     );
@@ -162,7 +165,7 @@ export default function CheckoutConfirmPage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-center">Confirm Checkout</h1>
+      <h1 className="text-2xl font-bold text-center">Request Checkout</h1>
 
       <Card>
         <CardHeader>
@@ -205,9 +208,14 @@ export default function CheckoutConfirmPage() {
               </Badge>
             </div>
             <div>
-              <p className="text-muted-foreground">Due Date</p>
-              <p className="font-medium">{formatDate(dueDate)}</p>
+              <p className="text-muted-foreground">Loan Period</p>
+              <p className="font-medium">{settings?.checkoutDurationDays || 21} days</p>
             </div>
+          </div>
+
+          <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+            An admin will review your request and schedule a pickup time.
+            You&apos;ll be notified when it&apos;s approved.
           </div>
 
           {error && (
@@ -217,10 +225,10 @@ export default function CheckoutConfirmPage() {
           <div className="flex gap-2 pt-2">
             <Button
               className="flex-1"
-              onClick={handleCheckout}
+              onClick={handleRequestCheckout}
               disabled={submitting || holdSubmitting || book?.status !== "Available"}
             >
-              {submitting ? "Processing..." : "Confirm Checkout"}
+              {submitting ? "Submitting..." : "Request Checkout"}
             </Button>
             {book?.status === "Available" && (
               <Button

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, BookOpen, BookPlus, Users, ArrowLeftRight, HandCoins, Receipt, Calculator, Upload, Download, Settings, LayoutDashboard, QrCode, RotateCcw, Clock } from "lucide-react";
+import { Menu, BookOpen, BookPlus, Users, ArrowLeftRight, HandCoins, Receipt, Calculator, Upload, Download, Settings, LayoutDashboard, QrCode, RotateCcw, Clock, Inbox } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/books", label: "Books", icon: BookOpen },
   { href: "/admin/books/qr", label: "QR Codes", icon: QrCode },
   { href: "/admin/checkout", label: "Checkout", icon: BookPlus },
+  { href: "/admin/checkout-requests", label: "Requests", icon: Inbox },
   { href: "/admin/checkin", label: "Check In", icon: RotateCcw },
   { href: "/admin/holds", label: "Holds", icon: Clock },
   { href: "/admin/members", label: "Members", icon: Users },

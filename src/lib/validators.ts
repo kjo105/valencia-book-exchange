@@ -145,7 +145,7 @@ export type Hold = z.infer<typeof holdSchema> & { id: string };
 // Settings schema
 export const settingsSchema = z.object({
   checkoutDurationDays: z.number().int().min(1).default(21),
-  maxBooksPerMember: z.number().int().min(1).default(3),
+  maxBooksPerMember: z.number().int().min(1).default(1),
   creditCostCheckout: z.number().int().min(0).default(1),
   creditRewardDonation: z.number().int().min(0).default(1),
   nextBookId: z.number().int().min(1).default(92),
@@ -154,6 +154,81 @@ export const settingsSchema = z.object({
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
+
+// Pickup window schema
+export const pickupWindowSchema = z.object({
+  date: z.string(), // ISO date string e.g. "2026-03-01"
+  startTime: z.string(), // e.g. "10:00"
+  endTime: z.string(), // e.g. "14:00"
+});
+
+export type PickupWindow = z.infer<typeof pickupWindowSchema>;
+
+// Checkout request schema
+export const checkoutRequestSchema = z.object({
+  bookId: z.string(), // book displayId
+  bookTitle: z.string(),
+  bookDocId: z.string(),
+  requesterId: z.string(), // member displayId
+  requesterName: z.string(),
+  requesterDocId: z.string(),
+  status: z.enum(["pending", "approved", "scheduled", "completed", "cancelled"]),
+  requestedAt: z.any(), // Firestore Timestamp
+  reviewedAt: z.any().nullable().default(null),
+  reviewedBy: z.string().nullable().default(null),
+  pickupWindows: z.array(pickupWindowSchema).default([]),
+  selectedWindowIndex: z.number().nullable().default(null),
+  pickupNotes: z.string().default(""),
+  completedAt: z.any().nullable().default(null),
+  transactionId: z.string().nullable().default(null),
+  createdAt: z.any(),
+});
+
+export type CheckoutRequest = z.infer<typeof checkoutRequestSchema> & {
+  id: string;
+};
+
+// Calendar event schema
+export const calendarEventSchema = z.object({
+  checkoutRequestId: z.string(),
+  bookId: z.string(),
+  bookTitle: z.string(),
+  memberId: z.string(), // member displayId
+  memberName: z.string(),
+  memberDocId: z.string(),
+  adminId: z.string(), // admin displayId
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  type: z.literal("pickup"),
+  createdAt: z.any(),
+});
+
+export type CalendarEvent = z.infer<typeof calendarEventSchema> & {
+  id: string;
+};
+
+// Notification schema
+export const notificationSchema = z.object({
+  recipientId: z.string(), // member displayId
+  recipientDocId: z.string(),
+  type: z.enum([
+    "checkout_request",
+    "request_approved",
+    "request_cancelled",
+    "window_selected",
+    "general",
+  ]),
+  title: z.string(),
+  message: z.string(),
+  linkTo: z.string().nullable().default(null),
+  read: z.boolean().default(false),
+  createdAt: z.any(),
+});
+
+export type Notification = z.infer<typeof notificationSchema> & {
+  id: string;
+};
 
 // CSV import schemas
 export const csvBookRowSchema = z.object({

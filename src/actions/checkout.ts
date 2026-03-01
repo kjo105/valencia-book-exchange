@@ -19,7 +19,7 @@ export async function checkoutBookAction(data: {
     return { success: false, error: "Book not found" };
   }
   const book = bookSnap.data()!;
-  if (book.status !== "Available" && book.status !== "On Hold") {
+  if (book.status !== "Available" && book.status !== "On Hold" && book.status !== "Pending Pickup") {
     return { success: false, error: "Book is not available for checkout" };
   }
 
@@ -39,7 +39,7 @@ export async function checkoutBookAction(data: {
   // Check member limits
   const settingsSnap = await adminDb.doc("settings/config").get();
   const settings = settingsSnap.data() || {};
-  const maxBooks = settings.maxBooksPerMember || 3;
+  const maxBooks = settings.maxBooksPerMember || 1;
 
   const memberRef = adminDb.doc(`members/${data.borrowerDocId}`);
   const memberSnap = await memberRef.get();

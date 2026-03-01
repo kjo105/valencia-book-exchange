@@ -54,6 +54,66 @@ export async function updateMemberAction(
   return { success: true };
 }
 
+export async function selfRegisterMemberAction(data: {
+  firebaseUid: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}) {
+  // Check if a member already exists with this UID
+  const existingByUid = await adminDb
+    .collection("members")
+    .where("firebaseUid", "==", data.firebaseUid)
+    .limit(1)
+    .get();
+  if (!existingByUid.empty) {
+    const doc = existingByUid.docs[0];
+    return { success: true, memberId: doc.id, displayId: doc.data().displayId };
+  }
+
+  // Check if a member exists with this email (link them)
+  const existingByEmail = await adminDb
+    .collection("members")
+    .where("email", "==", data.email)
+    .limit(1)
+    .get();
+  if (!existingByEmail.empty) {
+    const doc = existingByEmail.docs[0];
+    await doc.ref.update({
+      firebaseUid: data.firebaseUid,
+      updatedAt: Timestamp.now(),
+    });
+    return { success: true, memberId: doc.id, displayId: doc.data().displayId };
+  }
+
+  // Create a new member
+  const settingsRef = adminDb.doc("settings/config");
+  const settings = await settingsRef.get();
+  const nextId = settings.data()?.nextMemberId || 1;
+  const displayId = `MID-${String(nextId).padStart(4, "0")}`;
+
+  const ref = await adminDb.collection("members").add({
+    displayId,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    phone: "",
+    firebaseUid: data.firebaseUid,
+    role: "member",
+    credits: 0,
+    totalDonations: 0,
+    booksCheckedOut: 0,
+    isActive: true,
+    notes: "",
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+
+  await settingsRef.update({ nextMemberId: nextId + 1 });
+
+  return { success: true, memberId: ref.id, displayId };
+}
+
 export async function linkMemberToAuth(docId: string, firebaseUid: string) {
   await adminDb.doc(`members/${docId}`).update({
     firebaseUid,

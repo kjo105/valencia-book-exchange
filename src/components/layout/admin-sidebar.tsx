@@ -18,6 +18,7 @@ import {
   QrCode,
   RotateCcw,
   Clock,
+  Inbox,
 } from "lucide-react";
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/admin/books", label: "Books", icon: BookOpen },
   { href: "/admin/books/qr", label: "QR Codes", icon: QrCode },
   { href: "/admin/checkout", label: "Checkout", icon: BookPlus },
+  { href: "/admin/checkout-requests", label: "Requests", icon: Inbox },
   { href: "/admin/checkin", label: "Check In", icon: RotateCcw },
   { href: "/admin/holds", label: "Holds", icon: Clock },
   { href: "/admin/members", label: "Members", icon: Users },

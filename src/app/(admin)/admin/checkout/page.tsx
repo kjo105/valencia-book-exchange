@@ -342,7 +342,7 @@ export default function AdminCheckoutPage() {
                 </span>
                 <span className="text-muted-foreground">
                   {" "}
-                  / {settings?.maxBooksPerMember ?? 3}
+                  / {settings?.maxBooksPerMember ?? 1}
                 </span>
               </p>
             </div>

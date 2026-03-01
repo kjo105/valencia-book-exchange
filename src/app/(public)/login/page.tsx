@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithEmail, signInWithGoogle } from "@/lib/auth";
+import { signInWithEmail, signUpWithEmail, signInWithGoogle } from "@/lib/auth";
 import { getMemberByFirebaseUid } from "@/lib/firestore";
-import { collection, getDocs, query, where, updateDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { selfRegisterMemberAction } from "@/actions/members";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,26 +22,44 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
 
-  async function handleRedirect(uid: string, userEmail?: string | null) {
+  async function ensureMemberAndRedirect(
+    uid: string,
+    userEmail: string | null,
+    displayName: string | null
+  ) {
+    // Try to find existing member
     let member = await getMemberByFirebaseUid(uid);
 
-    // If not found by UID, try matching by email and link the account
     if (!member && userEmail) {
-      const q = query(collection(db, "members"), where("email", "==", userEmail));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const memberDoc = snap.docs[0];
-        await updateDoc(doc(db, "members", memberDoc.id), { firebaseUid: uid });
-        member = { id: memberDoc.id, ...memberDoc.data() } as import("@/lib/validators").Member;
+      // Auto-register: create or link a member record
+      const nameParts = displayName?.split(" ") || [];
+      const result = await selfRegisterMemberAction({
+        firebaseUid: uid,
+        email: userEmail,
+        firstName: nameParts[0] || firstName || "Member",
+        lastName: nameParts.slice(1).join(" ") || lastName || "",
+      });
+
+      if (!result.success) {
+        toast.error("Failed to create your account. Please try again.");
+        return;
       }
+
+      // Fetch the newly created/linked member
+      member = await getMemberByFirebaseUid(uid);
     }
 
     if (!member) {
-      toast.error("No member account found. Please contact an admin.");
+      toast.error("Something went wrong. Please try again.");
       return;
     }
+
+    toast.success(`Welcome, ${member.firstName}!`);
     if (member.role === "admin") {
       router.push("/admin");
     } else {
@@ -55,10 +72,46 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const result = await signInWithEmail(email, password);
-      await handleRedirect(result.user.uid, result.user.email);
+      await ensureMemberAndRedirect(
+        result.user.uid,
+        result.user.email,
+        result.user.displayName
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign in failed";
-      toast.error(message);
+      if (message.includes("user-not-found") || message.includes("invalid-credential")) {
+        toast.error("Invalid email or password. If you're new, click 'Create Account' below.");
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleEmailSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!firstName.trim()) {
+      toast.error("First name is required");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await signUpWithEmail(email, password);
+      await ensureMemberAndRedirect(
+        result.user.uid,
+        result.user.email,
+        `${firstName} ${lastName}`
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Sign up failed";
+      if (message.includes("email-already-in-use")) {
+        toast.error("An account with this email already exists. Try signing in instead.");
+      } else if (message.includes("weak-password")) {
+        toast.error("Password must be at least 6 characters.");
+      } else {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -68,7 +121,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const result = await signInWithGoogle();
-      await handleRedirect(result.user.uid, result.user.email);
+      await ensureMemberAndRedirect(
+        result.user.uid,
+        result.user.email,
+        result.user.displayName
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign in failed";
       toast.error(message);
@@ -84,38 +141,94 @@ export default function LoginPage() {
           <div className="flex justify-center mb-2">
             <BookOpen className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl">
+            {mode === "signin" ? "Welcome Back" : "Create Account"}
+          </CardTitle>
           <CardDescription>
-            Sign in to your book exchange account
+            {mode === "signin"
+              ? "Sign in to your book exchange account"
+              : "Join the Valencia Book Exchange"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleEmailSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
+          {mode === "signin" ? (
+            <form onSubmit={handleEmailSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleEmailSignUp} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="Kara"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Booker"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Creating account..." : "Create Account"}
+              </Button>
+            </form>
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -154,6 +267,32 @@ export default function LoginPage() {
             </svg>
             Google
           </Button>
+
+          <div className="text-center text-sm">
+            {mode === "signin" ? (
+              <p className="text-muted-foreground">
+                New here?{" "}
+                <button
+                  type="button"
+                  onClick={() => setMode("signup")}
+                  className="text-primary underline-offset-4 hover:underline font-medium"
+                >
+                  Create an account
+                </button>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setMode("signin")}
+                  className="text-primary underline-offset-4 hover:underline font-medium"
+                >
+                  Sign in
+                </button>
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

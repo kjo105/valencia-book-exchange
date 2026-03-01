@@ -47,6 +47,7 @@ export const BOOK_STATUSES = [
   "Available",
   "Checked Out",
   "On Hold",
+  "Pending Pickup",
   "Lost",
   "Retired",
 ] as const;

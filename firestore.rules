@@ -48,6 +48,21 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Checkout Requests: authenticated read/write
+    match /checkoutRequests/{requestId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Notifications: authenticated read/write
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Calendar Events: authenticated read/write
+    match /calendarEvents/{eventId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Settings: admin only
     match /settings/{settingId} {
       allow read: if true;

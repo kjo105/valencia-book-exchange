@@ -15,7 +15,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Book, Member, Transaction, MonetaryDonation, Expense, Settings } from "./validators";
+import type { Book, Member, Transaction, MonetaryDonation, Expense, Settings, CheckoutRequest, Notification, CalendarEvent } from "./validators";
 
 // ─── Generic Helpers ────────────────────────────────────────────
 
@@ -176,6 +176,40 @@ export async function deleteExpense(id: string): Promise<void> {
   await deleteDoc(doc(db, "expenses", id));
 }
 
+// ─── Checkout Requests ──────────────────────────────────────────
+
+export async function getCheckoutRequests(constraints: QueryConstraint[] = []): Promise<CheckoutRequest[]> {
+  const q = query(collection(db, "checkoutRequests"), ...constraints);
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => docToData<CheckoutRequest>(d));
+}
+
+// ─── Calendar Events ─────────────────────────────────────────
+
+export async function getCalendarEvents(constraints: QueryConstraint[] = []): Promise<CalendarEvent[]> {
+  const q = query(collection(db, "calendarEvents"), ...constraints);
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => docToData<CalendarEvent>(d));
+}
+
+// ─── Notifications ──────────────────────────────────────────────
+
+export async function getNotifications(constraints: QueryConstraint[] = []): Promise<Notification[]> {
+  const q = query(collection(db, "notifications"), ...constraints);
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => docToData<Notification>(d));
+}
+
+export async function getUnreadNotificationCount(recipientDocId: string): Promise<number> {
+  const q = query(
+    collection(db, "notifications"),
+    where("recipientDocId", "==", recipientDocId),
+    where("read", "==", false)
+  );
+  const snap = await getDocs(q);
+  return snap.size;
+}
+
 // ─── Settings ───────────────────────────────────────────────────
 
 export async function getSettings(): Promise<Settings> {
@@ -184,7 +218,7 @@ export async function getSettings(): Promise<Settings> {
     // Return defaults
     return {
       checkoutDurationDays: 21,
-      maxBooksPerMember: 3,
+      maxBooksPerMember: 1,
       creditCostCheckout: 1,
       creditRewardDonation: 1,
       nextBookId: 92,

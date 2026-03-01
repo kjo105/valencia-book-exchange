@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Users, AlertTriangle, ArrowRightLeft, Library } from "lucide-react";
+import { BookOpen, Users, AlertTriangle, ArrowRightLeft, Library, Inbox, CalendarCheck } from "lucide-react";
 
 interface DashboardStats {
   totalBooks: number;
@@ -22,6 +22,18 @@ interface DashboardStats {
   checkedOutBooks: number;
   totalMembers: number;
   overdueCount: number;
+  pendingRequests: number;
+}
+
+interface CalendarEventRecord {
+  id: string;
+  bookTitle?: string;
+  memberName?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  type?: string;
+  [key: string]: any;
 }
 
 interface TransactionRecord {
@@ -43,9 +55,11 @@ export default function AdminDashboardPage() {
     checkedOutBooks: 0,
     totalMembers: 0,
     overdueCount: 0,
+    pendingRequests: 0,
   });
   const [overdueTransactions, setOverdueTransactions] = useState<TransactionRecord[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
+  const [upcomingPickups, setUpcomingPickups] = useState<CalendarEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +94,13 @@ export default function AdminDashboardPage() {
           }
         });
 
+        // Fetch pending checkout requests
+        const pendingRequestsQuery = query(
+          collection(db, "checkoutRequests"),
+          where("status", "==", "pending")
+        );
+        const pendingRequestsSnapshot = await getDocs(pendingRequestsQuery);
+
         // Fetch recent transactions
         const recentQuery = query(
           collection(db, "transactions"),
@@ -92,12 +113,26 @@ export default function AdminDashboardPage() {
           ...doc.data(),
         })) as TransactionRecord[];
 
+        // Fetch upcoming calendar events (pickups)
+        const eventsQuery = query(
+          collection(db, "calendarEvents"),
+          orderBy("date", "asc"),
+          limit(5)
+        );
+        const eventsSnapshot = await getDocs(eventsQuery);
+        const events = eventsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as CalendarEventRecord[];
+        setUpcomingPickups(events);
+
         setStats({
           totalBooks,
           availableBooks,
           checkedOutBooks,
           totalMembers,
           overdueCount: overdue.length,
+          pendingRequests: pendingRequestsSnapshot.size,
         });
         setOverdueTransactions(overdue);
         setRecentTransactions(recent);
@@ -127,7 +162,7 @@ export default function AdminDashboardPage() {
       <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Books</CardTitle>
@@ -177,7 +212,55 @@ export default function AdminDashboardPage() {
             <div className="text-2xl font-bold text-red-600">{stats.overdueCount}</div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+            <Inbox className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.pendingRequests}</div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Upcoming Pickups */}
+      {upcomingPickups.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5 text-green-600" />
+            Upcoming Pickups
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Book</TableHead>
+                    <TableHead>Member</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {upcomingPickups.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell className="font-medium">{event.date || "—"}</TableCell>
+                      <TableCell>
+                        {event.startTime && event.endTime
+                          ? `${event.startTime}–${event.endTime}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell>{event.bookTitle || "N/A"}</TableCell>
+                      <TableCell>{event.memberName || "N/A"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Overdue Books Table */}
       {overdueTransactions.length > 0 && (

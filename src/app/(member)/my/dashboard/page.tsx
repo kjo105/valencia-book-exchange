@@ -5,12 +5,13 @@ import Link from "next/link";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
-import type { Book, Transaction, Hold } from "@/lib/validators";
+import type { Book, Transaction, Hold, CheckoutRequest } from "@/lib/validators";
 import { formatDate, isOverdue } from "@/lib/utils";
 import { cancelHoldAction, expireHoldIfNeeded } from "@/actions/holds";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { RequestCard } from "@/components/checkout-requests/request-card";
 import { QrCode, BookOpen, CreditCard, AlertTriangle, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,10 +19,42 @@ export default function MemberDashboard() {
   const { member } = useAuth();
   const [activeCheckouts, setActiveCheckouts] = useState<Transaction[]>([]);
   const [activeHolds, setActiveHolds] = useState<Hold[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<CheckoutRequest[]>([]);
+  const [requestCoverMap, setRequestCoverMap] = useState<Record<string, string>>({});
   const [holdCoverMap, setHoldCoverMap] = useState<Record<string, string>>({});
   const [coverMap, setCoverMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [cancellingHold, setCancellingHold] = useState<string | null>(null);
+
+  async function fetchRequests() {
+    if (!member) return;
+    const requestsQuery = query(
+      collection(db, "checkoutRequests"),
+      where("requesterId", "==", member.displayId),
+      where("status", "in", ["pending", "approved", "scheduled"])
+    );
+    const requestsSnap = await getDocs(requestsQuery);
+    const reqs = requestsSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as CheckoutRequest
+    );
+    setPendingRequests(reqs);
+
+    const reqCovers: Record<string, string> = {};
+    await Promise.all(
+      reqs.map(async (r) => {
+        const bookQ = query(
+          collection(db, "books"),
+          where("displayId", "==", r.bookId)
+        );
+        const bookSnap = await getDocs(bookQ);
+        if (!bookSnap.empty) {
+          const bookData = bookSnap.docs[0].data();
+          if (bookData.coverUrl) reqCovers[r.bookId] = bookData.coverUrl;
+        }
+      })
+    );
+    setRequestCoverMap(reqCovers);
+  }
 
   useEffect(() => {
     if (!member) return;
@@ -90,6 +123,35 @@ export default function MemberDashboard() {
         })
       );
       setHoldCoverMap(holdCovers);
+
+      // Fetch pending/approved/scheduled checkout requests for this member
+      const requestsQuery = query(
+        collection(db, "checkoutRequests"),
+        where("requesterId", "==", member!.displayId),
+        where("status", "in", ["pending", "approved", "scheduled"])
+      );
+      const requestsSnap = await getDocs(requestsQuery);
+      const reqs = requestsSnap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as CheckoutRequest
+      );
+      setPendingRequests(reqs);
+
+      // Fetch cover URLs for requested books
+      const reqCovers: Record<string, string> = {};
+      await Promise.all(
+        reqs.map(async (r) => {
+          const bookQ = query(
+            collection(db, "books"),
+            where("displayId", "==", r.bookId)
+          );
+          const bookSnap = await getDocs(bookQ);
+          if (!bookSnap.empty) {
+            const bookData = bookSnap.docs[0].data();
+            if (bookData.coverUrl) reqCovers[r.bookId] = bookData.coverUrl;
+          }
+        })
+      );
+      setRequestCoverMap(reqCovers);
 
       setLoading(false);
     }
@@ -237,6 +299,30 @@ export default function MemberDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active Requests */}
+      {pendingRequests.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Active Requests</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {pendingRequests.map((req) => (
+              <RequestCard
+                key={req.id}
+                request={req}
+                coverUrl={requestCoverMap[req.bookId]}
+                memberName={`${member.lastName}, ${member.firstName}`}
+                memberDocId={member.id}
+                onCancelled={() =>
+                  setPendingRequests((prev) =>
+                    prev.filter((r) => r.id !== req.id)
+                  )
+                }
+                onWindowSelected={() => fetchRequests()}
+              />
             ))}
           </div>
         </div>
