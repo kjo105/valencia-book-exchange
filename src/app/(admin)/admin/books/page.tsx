@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Trash2, BookOpen } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, BookOpen, QrCode } from "lucide-react";
 
 export default function AdminBooksPage() {
   const [books, setBooks] = useState<(Book & { id: string })[]>([]);
@@ -105,12 +105,20 @@ export default function AdminBooksPage() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">Manage Books</h1>
-        <Link href="/admin/books/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Book
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/books/qr">
+            <Button variant="outline">
+              <QrCode className="h-4 w-4 mr-2" />
+              QR Codes
+            </Button>
+          </Link>
+          <Link href="/admin/books/new">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Book
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="relative mb-6">

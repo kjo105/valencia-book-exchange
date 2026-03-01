@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { isOverdue, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Users, AlertTriangle, ArrowRightLeft, Library, Inbox, CalendarCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Users, AlertTriangle, ArrowRightLeft, Library, Inbox, CalendarCheck, RotateCcw } from "lucide-react";
+import { QuickCheckinDialog } from "@/components/admin/quick-checkin-dialog";
 
 interface DashboardStats {
   totalBooks: number;
@@ -58,91 +60,97 @@ export default function AdminDashboardPage() {
     pendingRequests: 0,
   });
   const [overdueTransactions, setOverdueTransactions] = useState<TransactionRecord[]>([]);
+  const [activeCheckouts, setActiveCheckouts] = useState<TransactionRecord[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
   const [upcomingPickups, setUpcomingPickups] = useState<CalendarEventRecord[]>([]);
+  const [checkinTransaction, setCheckinTransaction] = useState<TransactionRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        // Fetch books
-        const booksSnapshot = await getDocs(collection(db, "books"));
-        const totalBooks = booksSnapshot.size;
-        let availableBooks = 0;
-        let checkedOutBooks = 0;
-        booksSnapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          if (data.status === "Available") availableBooks++;
-          if (data.status === "Checked Out") checkedOutBooks++;
-        });
+  async function fetchDashboardData() {
+    try {
+      // Fetch books
+      const booksSnapshot = await getDocs(collection(db, "books"));
+      const totalBooks = booksSnapshot.size;
+      let availableBooks = 0;
+      let checkedOutBooks = 0;
+      booksSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.status === "Available") availableBooks++;
+        if (data.status === "Checked Out") checkedOutBooks++;
+      });
 
-        // Fetch members
-        const membersSnapshot = await getDocs(collection(db, "members"));
-        const totalMembers = membersSnapshot.size;
+      // Fetch members
+      const membersSnapshot = await getDocs(collection(db, "members"));
+      const totalMembers = membersSnapshot.size;
 
-        // Fetch active transactions to find overdue
-        const activeTransactionsQuery = query(
-          collection(db, "transactions"),
-          where("isCheckedOut", "==", true)
-        );
-        const activeSnapshot = await getDocs(activeTransactionsQuery);
-        const overdue: TransactionRecord[] = [];
-        activeSnapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          if (data.dueDate && isOverdue(data.dueDate)) {
-            overdue.push({ id: doc.id, ...data });
-          }
-        });
+      // Fetch active transactions (all checked out books)
+      const activeTransactionsQuery = query(
+        collection(db, "transactions"),
+        where("isCheckedOut", "==", true)
+      );
+      const activeSnapshot = await getDocs(activeTransactionsQuery);
+      const allActive: TransactionRecord[] = [];
+      const overdue: TransactionRecord[] = [];
+      activeSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const record = { id: doc.id, ...data };
+        allActive.push(record);
+        if (data.dueDate && isOverdue(data.dueDate)) {
+          overdue.push(record);
+        }
+      });
 
-        // Fetch pending checkout requests
-        const pendingRequestsQuery = query(
-          collection(db, "checkoutRequests"),
-          where("status", "==", "pending")
-        );
-        const pendingRequestsSnapshot = await getDocs(pendingRequestsQuery);
+      // Fetch pending checkout requests
+      const pendingRequestsQuery = query(
+        collection(db, "checkoutRequests"),
+        where("status", "==", "pending")
+      );
+      const pendingRequestsSnapshot = await getDocs(pendingRequestsQuery);
 
-        // Fetch recent transactions
-        const recentQuery = query(
-          collection(db, "transactions"),
-          orderBy("createdAt", "desc"),
-          limit(10)
-        );
-        const recentSnapshot = await getDocs(recentQuery);
-        const recent = recentSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as TransactionRecord[];
+      // Fetch recent transactions
+      const recentQuery = query(
+        collection(db, "transactions"),
+        orderBy("createdAt", "desc"),
+        limit(10)
+      );
+      const recentSnapshot = await getDocs(recentQuery);
+      const recent = recentSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as TransactionRecord[];
 
-        // Fetch upcoming calendar events (pickups)
-        const eventsQuery = query(
-          collection(db, "calendarEvents"),
-          orderBy("date", "asc"),
-          limit(5)
-        );
-        const eventsSnapshot = await getDocs(eventsQuery);
-        const events = eventsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as CalendarEventRecord[];
-        setUpcomingPickups(events);
+      // Fetch upcoming calendar events (pickups)
+      const eventsQuery = query(
+        collection(db, "calendarEvents"),
+        orderBy("date", "asc"),
+        limit(5)
+      );
+      const eventsSnapshot = await getDocs(eventsQuery);
+      const events = eventsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as CalendarEventRecord[];
+      setUpcomingPickups(events);
 
-        setStats({
-          totalBooks,
-          availableBooks,
-          checkedOutBooks,
-          totalMembers,
-          overdueCount: overdue.length,
-          pendingRequests: pendingRequestsSnapshot.size,
-        });
-        setOverdueTransactions(overdue);
-        setRecentTransactions(recent);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
+      setStats({
+        totalBooks,
+        availableBooks,
+        checkedOutBooks,
+        totalMembers,
+        overdueCount: overdue.length,
+        pendingRequests: pendingRequestsSnapshot.size,
+      });
+      setActiveCheckouts(allActive);
+      setOverdueTransactions(overdue);
+      setRecentTransactions(recent);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
@@ -262,6 +270,61 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {/* Active Checkouts */}
+      {activeCheckouts.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5 text-yellow-600" />
+            Active Checkouts
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Book</TableHead>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Checkout Date</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeCheckouts.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="font-medium">{tx.bookTitle || "N/A"}</TableCell>
+                      <TableCell>{tx.memberName || "N/A"}</TableCell>
+                      <TableCell>{tx.checkoutDate ? formatDate(tx.checkoutDate) : "N/A"}</TableCell>
+                      <TableCell>
+                        {tx.dueDate ? (
+                          isOverdue(tx.dueDate) ? (
+                            <Badge variant="destructive">{formatDate(tx.dueDate)}</Badge>
+                          ) : (
+                            formatDate(tx.dueDate)
+                          )
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCheckinTransaction(tx)}
+                        >
+                          <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                          Check In
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Overdue Books Table */}
       {overdueTransactions.length > 0 && (
         <div className="mb-8">
@@ -342,6 +405,15 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <QuickCheckinDialog
+        open={!!checkinTransaction}
+        onOpenChange={(open) => {
+          if (!open) setCheckinTransaction(null);
+        }}
+        transaction={checkinTransaction}
+        onSuccess={fetchDashboardData}
+      />
     </div>
   );
 }

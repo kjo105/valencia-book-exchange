@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,7 +36,7 @@ import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { Expense } from "@/lib/validators";
 import { createExpenseAction, deleteExpenseAction } from "@/actions/donations";
 
-export default function ExpensesPage() {
+export function ExpensesTabContent() {
   const [expenses, setExpenses] = useState<(Expense & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -140,12 +140,9 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
-          <p className="text-muted-foreground">
-            Track and manage organizational expenses.
-          </p>
-        </div>
+        <p className="text-muted-foreground">
+          Track and manage organizational expenses.
+        </p>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>

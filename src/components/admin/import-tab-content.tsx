@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import Papa from "papaparse";
 import { collection, addDoc, doc, getDoc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -22,7 +22,7 @@ interface ImportResult {
   errors: string[];
 }
 
-export default function ImportPage() {
+export function ImportTabContent() {
   const [bookRows, setBookRows] = useState<ParsedRow[]>([]);
   const [memberRows, setMemberRows] = useState<ParsedRow[]>([]);
   const [bookHeaders, setBookHeaders] = useState<string[]>([]);
@@ -236,11 +236,6 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Import Data</h1>
-        <p className="text-muted-foreground">Import books and members from CSV files</p>
-      </div>
-
       <Tabs defaultValue="books">
         <TabsList>
           <TabsTrigger value="books">Import Books</TabsTrigger>

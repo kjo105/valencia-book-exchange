@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,7 +40,7 @@ import {
   deleteMonetaryDonationAction,
 } from "@/actions/donations";
 
-export default function DonationsPage() {
+export function DonationsTabContent() {
   const [donations, setDonations] = useState<(MonetaryDonation & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -145,12 +145,9 @@ export default function DonationsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Monetary Donations</h1>
-          <p className="text-muted-foreground">
-            Track and manage monetary donations received.
-          </p>
-        </div>
+        <p className="text-muted-foreground">
+          Track and manage monetary donations received.
+        </p>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>

@@ -28,7 +28,7 @@ function timestampToString(ts: { toDate?: () => Date } | null): string {
   });
 }
 
-export default function ExportPage() {
+export function ExportTabContent() {
   const [exporting, setExporting] = useState<string | null>(null);
 
   async function exportBooks() {
@@ -176,36 +176,29 @@ export default function ExportPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Export Data</h1>
-        <p className="text-muted-foreground">Download CSV files for Google Sheets backup</p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {exports.map(({ key, label, icon: Icon, desc, fn }) => (
-          <Card key={key}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Icon className="h-5 w-5" />
-                {label}
-              </CardTitle>
-              <CardDescription>{desc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={fn}
-                disabled={exporting !== null}
-                className="w-full"
-                variant="outline"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {exporting === key ? "Exporting..." : "Download CSV"}
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {exports.map(({ key, label, icon: Icon, desc, fn }) => (
+        <Card key={key}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Icon className="h-5 w-5" />
+              {label}
+            </CardTitle>
+            <CardDescription>{desc}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={fn}
+              disabled={exporting !== null}
+              className="w-full"
+              variant="outline"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {exporting === key ? "Exporting..." : "Download CSV"}
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
